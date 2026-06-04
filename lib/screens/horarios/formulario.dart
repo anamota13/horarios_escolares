@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../components/editor.dart';
 import '../../models/horario.dart';
+import '../../repository/horario_repository.dart';
 
 class FormularioHorario extends StatelessWidget {
   final TextEditingController _controladorCampoDisciplina = TextEditingController();
   final TextEditingController _controladorCampoHora = TextEditingController();
   final TextEditingController _controladorCampoDia = TextEditingController();
+
+  final HorarioRepository _repository = HorarioRepository();
 
   @override
   Widget build(BuildContext context) {
@@ -41,14 +44,21 @@ class FormularioHorario extends StatelessWidget {
     );
   }
 
-  void _criaHorario(BuildContext context) {
+  void _criaHorario(BuildContext context) async {
     final String disciplina = _controladorCampoDisciplina.text;
     final String hora = _controladorCampoHora.text;
     final String dia = _controladorCampoDia.text;
 
     if (disciplina.isNotEmpty && hora.isNotEmpty) {
-      final horarioCriado = Horario(disciplina, hora, dia);
-      Navigator.pop(context, horarioCriado);
+      final horarioCriado = Horario(
+        disciplina: disciplina,
+        hora: hora,
+        diaSemana: dia,
+      );
+
+      await _repository.adicionar(horarioCriado);
+      
+      Navigator.pop(context, true);
     }
   }
 }

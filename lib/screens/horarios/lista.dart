@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/horario.dart';
+import '../../repository/horario_repository.dart';
 import 'formulario.dart';
 
 class ListaHorarios extends StatefulWidget {
@@ -10,7 +11,24 @@ class ListaHorarios extends StatefulWidget {
 }
 
 class ListaHorariosState extends State<ListaHorarios> {
-  final List<Horario> _horarios = [];
+  final HorarioRepository _repository = HorarioRepository();
+  late Future<List<Horario>> _futureHorarios;
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarHorarios();
+  }
+
+  void _carregarHorarios() {
+    _futureHorarios = _repository.obterTodos();
+  }
+
+  void _atualizarLista() {
+    setState(() {
+      _carregarHorarios();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -18,13 +36,28 @@ class ListaHorariosState extends State<ListaHorarios> {
       appBar: AppBar(
         title: const Text('Meus Horários Escolares'),
       ),
-      body: ListView.builder(
-        itemCount: _horarios.length,
-        itemBuilder: (context, indice) {
-          final horario = _horarios[indice];
-          return ItemHorario(
-            horario,
-            onDelete: () => _confirmarExclusao(indice),
+      body: FutureBuilder<List<Horario>>(
+        future: _futureHorarios, 
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return const Center(child: Text('Erro ao carregar os horários.'));
+          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return const Center(child: Text('Nenhum horário cadastrado.'));
+          }
+
+          final horarios = snapshot.data!;
+
+          return ListView.builder(
+            itemCount: horarios.length,
+            itemBuilder: (context, indice) {
+              final horario = horarios[indice];
+              return ItemHorario(
+                horario,
+                onDelete: () => _confirmarExclusao(horario),
+              );
+            },
           );
         },
       ),
@@ -35,22 +68,18 @@ class ListaHorariosState extends State<ListaHorarios> {
             MaterialPageRoute(
               builder: (context) => FormularioHorario(),
             ),
-          ).then((horarioRecebido) => _atualiza(horarioRecebido));
+          ).then((sucesso) {
+            if (sucesso == true) {
+              _atualizarLista();
+            }
+          });
         },
         child: const Icon(Icons.add),
       ),
     );
   }
 
-  void _atualiza(Horario? horarioRecebido) {
-    if (horarioRecebido != null) {
-      setState(() {
-        _horarios.add(horarioRecebido);
-      });
-    }
-  }
-
-  void _confirmarExclusao(int indice) {
+  void _confirmarExclusao(Horario horario) {
     showDialog(
       context: context,
       builder: (context) {
@@ -63,10 +92,11 @@ class ListaHorariosState extends State<ListaHorarios> {
               child: const Text('Cancelar'),
             ),
             TextButton(
-              onPressed: () {
-                setState(() {
-                  _horarios.removeAt(indice);
-                });
+              onPressed: () async {
+                if (horario.id != null) {
+                  await _repository.excluir(horario.id!);
+                  _atualizarLista(); 
+                }
                 Navigator.pop(context);
               },
               child: const Text('Excluir'),
